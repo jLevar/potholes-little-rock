@@ -41,14 +41,13 @@ def fetch_data():
 
 data = fetch_data()
 
-if data:
-    # We still save it to the file so you can inspect the raw data on GitHub if needed
-    print(f"Saving new data to cache ({CACHE_FILE})...")
-    with CACHE_FILE.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-else:
+if not data:
     print("No data available.")
     exit()
+
+# print(f"Saving new data to cache ({CACHE_FILE})...")
+# with CACHE_FILE.open("w", encoding="utf-8") as f:
+#     json.dump(data, f, ensure_ascii=False, indent=2)
 
 df = pd.DataFrame(data)
 

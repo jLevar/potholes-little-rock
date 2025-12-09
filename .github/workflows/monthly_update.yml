@@ -1,0 +1,42 @@
+name: Update Pothole Map
+
+# Run this workflow every day at 6:00 AM UTC (approx midnight Central)
+# AND allow manual triggering from the Actions tab for testing
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Check out your repository code
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Set up Python
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    # 3. Install the libraries from requirements.txt
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    # 4. Run your python script
+    - name: Run mapping script
+      run: python main.py
+
+    # 5. Commit and push the new HTML file back to the repo
+    - name: Commit and push changes
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "Automated map update"
+        file_pattern: "*.html"
