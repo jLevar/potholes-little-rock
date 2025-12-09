@@ -37,6 +37,81 @@ def fetch_data():
 
     return data
 
+import re
+from collections import Counter
+
+def generate_dashboard_html(df):
+    """Generates a text-based HTML dashboard of top streets and intersections."""
+    
+    # --- 1. Top Streets Logic ---
+    # We strip out the house numbers to group by Street Name
+    # e.g., "1200 W Markham" becomes "W Markham"
+    street_names = []
+    intersections = []
+    
+    for address in df['street_address'].dropna():
+        address = str(address).upper().strip()
+        
+        # Check if it's an intersection
+        if '&' in address or ' AND ' in address or '/' in address:
+            intersections.append(address)
+        else:
+            # Regex: Remove leading numbers (e.g. "123 Main" -> "Main")
+            clean_street = re.sub(r'^\d+\s+', '', address)
+            # Optional: Remove "Block Of" if present
+            clean_street = clean_street.replace("BLOCK OF ", "")
+            street_names.append(clean_street)
+
+    # Get Top 10s
+    top_streets = Counter(street_names).most_common(10)
+    top_intersections = Counter(intersections).most_common(5)
+    
+    # --- 2. Build the HTML ---
+    # We use simple CSS to make it look like the blog post style
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: sans-serif; padding: 20px; color: #333; }}
+            h2 {{ border-bottom: 2px solid #e74c3c; padding-bottom: 10px; color: #e74c3c; }}
+            ul {{ list-style-type: none; padding: 0; }}
+            li {{ 
+                background: #f9f9f9; 
+                margin: 5px 0; 
+                padding: 10px; 
+                border-left: 5px solid #e74c3c; 
+                display: flex; 
+                justify-content: space-between;
+            }}
+            .count {{ font-weight: bold; color: #555; }}
+            .footer {{ margin-top: 20px; font-size: 0.8em; color: #777; }}
+        </style>
+    </head>
+    <body>
+        <h2>Streets with Most Potholes</h2>
+        <ul>
+            {''.join([f'<li><span>{name.title()}</span> <span class="count">{count} Potholes</span></li>' for name, count in top_streets])}
+        </ul>
+
+        <h2>Top Intersections</h2>
+        <ul>
+            {''.join([f'<li><span>{name.title()}</span> <span class="count">{count} Potholes</span></li>' for name, count in top_intersections])}
+        </ul>
+        
+        <div class="footer">
+            Data updated automatically: {pd.Timestamp.now().strftime('%Y-%m-%d')}
+        </div>
+    </body>
+    </html>
+    """
+    
+    # --- 3. Save the file ---
+    with open("pothole_stats.html", "w", encoding="utf-8") as f:
+        f.write(html_content)
+    print("Dashboard saved to pothole_stats.html")
+
+
 # --- MAIN LOGIC ---
 
 data = fetch_data()
@@ -44,10 +119,6 @@ data = fetch_data()
 if not data:
     print("No data available.")
     exit()
-
-# print(f"Saving new data to cache ({CACHE_FILE})...")
-# with CACHE_FILE.open("w", encoding="utf-8") as f:
-#     json.dump(data, f, ensure_ascii=False, indent=2)
 
 df = pd.DataFrame(data)
 
@@ -107,3 +178,5 @@ add_markers()
 output_file = "map.html"
 lr_map.save(output_file)
 print(f"Map saved to {output_file}")
+
+generate_dashboard_html(df)
