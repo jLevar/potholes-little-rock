@@ -42,6 +42,9 @@ def fetch_data():
 def generate_dashboard_html(df):
     """Generates a text-based HTML dashboard of top streets and intersections."""
     
+    # --- 0. Calculate Totals ---
+    total_potholes = len(df)
+    
     # --- 1. Top Streets Logic ---
     street_names = []
     intersections = []
@@ -62,19 +65,36 @@ def generate_dashboard_html(df):
     top_streets = Counter(street_names).most_common(10)
     
     # Get Intersections (Filter: Must have > 1 pothole)
-    # We grab the top 10 candidates first, then filter out the singles
     raw_intersections = Counter(intersections).most_common(10)
     valid_intersections = [(name, count) for name, count in raw_intersections if count > 1]
     
     # --- 2. Build the HTML ---
-    # Start the HTML structure
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <style>
-            body {{ font-family: sans-serif; padding: 20px; color: #333; }}
-            h2 {{ border-bottom: 2px solid #0e6394; padding-bottom: 10px; color: #e74c3c; font-size: 1.2em; }}
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }}
+            
+            /* Total Count Box Style */
+            .total-box {{
+                text-align: center;
+                background-color: #0e6394;
+                color: white;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 25px;
+            }}
+            .total-number {{ font-size: 3em; font-weight: bold; margin: 0; line-height: 1; }}
+            .total-label {{ font-size: 1em; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; opacity: 0.9; }}
+
+            h2 {{ 
+                border-bottom: 2px solid #0e6394; 
+                padding-bottom: 10px; 
+                color: #0e6394; 
+                font-size: 1.2em; 
+                margin-top: 0;
+            }}
             ul {{ list-style-type: none; padding: 0; }}
             li {{ 
                 background: #f9f9f9; 
@@ -86,13 +106,18 @@ def generate_dashboard_html(df):
                 font-size: 0.9em;
             }}
             .count {{ font-weight: bold; color: #555; }}
-            .footer {{ margin-top: 20px; font-size: 0.8em; color: #777; text-align: center;}}
+            .footer {{ margin-top: 20px; font-size: 0.8em; color: #777; text-align: center; }}
         </style>
     </head>
     <body>
+        <div class="total-box">
+            <div class="total-number">{total_potholes}</div>
+            <div class="total-label">Active Potholes</div>
+        </div>
+
         <h2>Streets with Most Potholes</h2>
         <ul>
-            {''.join([f'<li><span>{name.title()}</span> <span class="count">{count} Potholes</span></li>' for name, count in top_streets])}
+            {''.join([f'<li><span>{name.title()}</span> <span class="count">{count}</span></li>' for name, count in top_streets])}
         </ul>
     """
     
@@ -101,11 +126,10 @@ def generate_dashboard_html(df):
         html_content += f"""
         <h2>Top Intersections</h2>
         <ul>
-            {''.join([f'<li><span>{name.title()}</span> <span class="count">{count} Potholes</span></li>' for name, count in valid_intersections])}
+            {''.join([f'<li><span>{name.title()}</span> <span class="count">{count}</span></li>' for name, count in valid_intersections])}
         </ul>
         """
         
-    # Close out the HTML
     html_content += f"""
         <div class="footer">
             Data updated: {pd.Timestamp.now().strftime('%Y-%m-%d')}
@@ -115,7 +139,7 @@ def generate_dashboard_html(df):
     """
     
     # --- 3. Save the file ---
-    output_path = Path("pothole_stats.html")
+    output_path = Path("stats.html")
     with output_path.open("w", encoding="utf-8") as f:
         f.write(html_content)
     print(f"Dashboard saved to {output_path}")
