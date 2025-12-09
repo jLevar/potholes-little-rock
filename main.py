@@ -6,7 +6,7 @@ import folium
 from folium.plugins import MarkerCluster
 from folium.plugins import HeatMap
 
-# Constants
+
 BASE_URL = "https://data.littlerock.gov/resource/2x6n-j9fb.json"
 CACHE_FILE = Path("data.json")
 
@@ -29,40 +29,29 @@ def fetch_data():
 
     if not data:
         print("No 'Pothole' records found. The category names might have changed.")
-        # Fetch a list of distinct categories to help debug
         print("Fetching available categories to help you find the right one...")
         cat_params = {"$select": "issue_sub_category", "$group": "issue_sub_category", "$limit": 20}
         cat_response = requests.get(BASE_URL, params=cat_params)
         print(pd.DataFrame(cat_response.json()))
         exit()
 
-    return df
+    return data
 
 # --- MAIN LOGIC ---
 
-# Check if local cache exists
-if CACHE_FILE.exists():
-    print(f"Loading data from local cache ({CACHE_FILE})...")
-    with CACHE_FILE.open("r", encoding="utf-8") as f:
-        data = json.load(f)
-else:
-    # If not, fetch and save
-    data = fetch_data()
-    if data:
-        print(f"Saving new data to cache ({CACHE_FILE})...")
-        with CACHE_FILE.open("w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+data = fetch_data()
 
-# Proceed with DataFrame creation
-if not data:
+if data:
+    # We still save it to the file so you can inspect the raw data on GitHub if needed
+    print(f"Saving new data to cache ({CACHE_FILE})...")
+    with CACHE_FILE.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+else:
     print("No data available.")
     exit()
 
 df = pd.DataFrame(data)
-print(f"Loaded {len(df)} records.")
 
-
-# 4. VISUALIZE: Create the Map
 # Center map on Little Rock
 lr_map = folium.Map(location=[34.7465, -92.2896], zoom_start=12)
 
@@ -85,7 +74,7 @@ def add_markers():
         <b>Type:</b> {row.get('issue_sub_category', 'N/A')}<br>
         <b>Status:</b> {status}<br>
         <b>Date:</b> {row.get('ticket_created_date_time', 'N/A')}<br>
-        <b>Address:</b> {row.get('incident_address', 'N/A')}
+        <b>Address:</b> {row.get('street_address', 'N/A')}
         """
         
         folium.Marker(
@@ -115,8 +104,7 @@ def add_heat_clouds():
     ).add_to(lr_map)
 
 add_markers()
-add_heat_clouds()
 
-output_file = "little_rock_potholes.html"
+output_file = "map.html"
 lr_map.save(output_file)
 print(f"Map saved to {output_file}")
