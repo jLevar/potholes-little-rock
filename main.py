@@ -1,10 +1,12 @@
-import json
 from pathlib import Path
 import requests
 import pandas as pd
 import folium
 from folium.plugins import MarkerCluster
 from folium.plugins import HeatMap
+import re
+from collections import Counter
+
 
 
 BASE_URL = "https://data.littlerock.gov/resource/2x6n-j9fb.json"
@@ -37,15 +39,10 @@ def fetch_data():
 
     return data
 
-import re
-from collections import Counter
-
 def generate_dashboard_html(df):
     """Generates a text-based HTML dashboard of top streets and intersections."""
     
     # --- 1. Top Streets Logic ---
-    # We strip out the house numbers to group by Street Name
-    # e.g., "1200 W Markham" becomes "W Markham"
     street_names = []
     intersections = []
     
@@ -56,36 +53,40 @@ def generate_dashboard_html(df):
         if '&' in address or ' AND ' in address or '/' in address:
             intersections.append(address)
         else:
-            # Regex: Remove leading numbers (e.g. "123 Main" -> "Main")
+            # Clean street names
             clean_street = re.sub(r'^\d+\s+', '', address)
-            # Optional: Remove "Block Of" if present
             clean_street = clean_street.replace("BLOCK OF ", "")
             street_names.append(clean_street)
 
-    # Get Top 10s
+    # Get Top 10 Streets
     top_streets = Counter(street_names).most_common(10)
-    top_intersections = Counter(intersections).most_common(5)
+    
+    # Get Intersections (Filter: Must have > 1 pothole)
+    # We grab the top 10 candidates first, then filter out the singles
+    raw_intersections = Counter(intersections).most_common(10)
+    valid_intersections = [(name, count) for name, count in raw_intersections if count > 1]
     
     # --- 2. Build the HTML ---
-    # We use simple CSS to make it look like the blog post style
+    # Start the HTML structure
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <style>
             body {{ font-family: sans-serif; padding: 20px; color: #333; }}
-            h2 {{ border-bottom: 2px solid #e74c3c; padding-bottom: 10px; color: #e74c3c; }}
+            h2 {{ border-bottom: 2px solid #0e6394; padding-bottom: 10px; color: #e74c3c; font-size: 1.2em; }}
             ul {{ list-style-type: none; padding: 0; }}
             li {{ 
                 background: #f9f9f9; 
                 margin: 5px 0; 
                 padding: 10px; 
-                border-left: 5px solid #e74c3c; 
+                border-left: 5px solid #0e6394; 
                 display: flex; 
                 justify-content: space-between;
+                font-size: 0.9em;
             }}
             .count {{ font-weight: bold; color: #555; }}
-            .footer {{ margin-top: 20px; font-size: 0.8em; color: #777; }}
+            .footer {{ margin-top: 20px; font-size: 0.8em; color: #777; text-align: center;}}
         </style>
     </head>
     <body>
@@ -93,23 +94,31 @@ def generate_dashboard_html(df):
         <ul>
             {''.join([f'<li><span>{name.title()}</span> <span class="count">{count} Potholes</span></li>' for name, count in top_streets])}
         </ul>
-
+    """
+    
+    # CONDITIONAL SECTION: Only add Intersections if we have valid ones
+    if valid_intersections:
+        html_content += f"""
         <h2>Top Intersections</h2>
         <ul>
-            {''.join([f'<li><span>{name.title()}</span> <span class="count">{count} Potholes</span></li>' for name, count in top_intersections])}
+            {''.join([f'<li><span>{name.title()}</span> <span class="count">{count} Potholes</span></li>' for name, count in valid_intersections])}
         </ul>
+        """
         
+    # Close out the HTML
+    html_content += f"""
         <div class="footer">
-            Data updated automatically: {pd.Timestamp.now().strftime('%Y-%m-%d')}
+            Data updated: {pd.Timestamp.now().strftime('%Y-%m-%d')}
         </div>
     </body>
     </html>
     """
     
     # --- 3. Save the file ---
-    with open("pothole_stats.html", "w", encoding="utf-8") as f:
+    output_path = Path("pothole_stats.html")
+    with output_path.open("w", encoding="utf-8") as f:
         f.write(html_content)
-    print("Dashboard saved to pothole_stats.html")
+    print(f"Dashboard saved to {output_path}")
 
 
 # --- MAIN LOGIC ---
